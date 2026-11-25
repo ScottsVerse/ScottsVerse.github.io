@@ -138,6 +138,7 @@ window.addEventListener('hashchange',renderPage);renderPage();
         return top;
       });
     }
+    const photos = new Set(page.querySelectorAll('figure.scrap-print'));
     measure();
     items.forEach((el,i) => {
       const rect = el.getBoundingClientRect();
@@ -145,6 +146,10 @@ window.addEventListener('hashchange',renderPage);renderPage();
       const stage = el.matches('.button') ? 3 : el.matches('figure') ? 2 : el.matches('p:not(.kicker),aside a') ? 1 : 0;
       el.style.setProperty('--rd', (quickReveal.has(el) ? 0 : stage * 160) + 'ms');
       if (quickReveal.has(el)) el.setAttribute('data-quick-reveal','');
+      if (photos.has(el)) {
+        el.dataset.reveal = 'ready';
+        return;
+      }
       if (opening) el.setAttribute('data-pop',pop);
       el.dataset.reveal = opening || positions[i] < scrollY ? 'shown' : 'ready';
     });
@@ -168,6 +173,17 @@ window.addEventListener('hashchange',renderPage);renderPage();
         const isQuick = quickReveal.has(el);
         const timing = isQuick ? Math.round(1800 - 600 * pace) + 'ms' : duration;
         const state = el.dataset.reveal;
+        if (photos.has(el)) {
+          const rect = el.getBoundingClientRect();
+          const inset = Math.min(60, rect.height * 0.15);
+          const visible = rect.top < innerHeight - inset && rect.bottom > inset;
+          const outside = rect.bottom < -24 || rect.top > innerHeight + 24;
+          if ((state === 'ready' && visible) || (state === 'shown' && outside)) {
+            el.style.setProperty('--rt', timing);
+            el.dataset.reveal = visible ? 'shown' : 'ready';
+          }
+          return;
+        }
         if (state === 'ready' && positions[i] <= bottom - (isQuick ? 0 : 16)) {
           el.style.setProperty('--rt', timing);
           el.dataset.reveal = 'shown';
@@ -182,6 +198,9 @@ window.addEventListener('hashchange',renderPage);renderPage();
     }
     function schedule() { if (!frame) frame = requestAnimationFrame(update); }
     function resize() { measure(); schedule(); }
+    // Commit the photo starting opacity before revealing initially visible prints.
+    for (const photo of photos) getComputedStyle(photo).opacity;
+    schedule();
     window.addEventListener('scroll',schedule,{passive:true});
     window.addEventListener('resize',resize);
     const sizes = window.ResizeObserver && new ResizeObserver(resize);
